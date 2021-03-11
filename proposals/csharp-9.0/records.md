@@ -111,7 +111,7 @@ It is an error if the explicit declaration doesn't allow overriding it in a deri
  
 A warning is reported if one of `Equals(R?)` and `GetHashCode()` is explicitly declared but the other method is not explicit.
 
-The synthesized override of `GetHashCode()` returns an `int` result of a deterministic function combining the following values:
+The synthesized override of `GetHashCode()` returns an `int` result of combining the following values:
 - For each instance field `fieldN` in the record type that is not inherited, the value of
 `System.Collections.Generic.EqualityComparer<TN>.Default.GetHashCode(fieldN)` where `TN` is the field type, and
 - If there is a base record type, the value of `base.GetHashCode()`; otherwise
@@ -309,7 +309,7 @@ class R2 : R1, IEquatable<R2>
     public T2 P2 { get; init; }
     public T3 P3 { get; init; }
     
-    protected override void PrintMembers(StringBuilder builder)
+    protected override bool PrintMembers(StringBuilder builder)
     {
         if (base.PrintMembers(builder))
             builder.Append(", ");
