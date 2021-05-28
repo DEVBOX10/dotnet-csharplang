@@ -81,10 +81,10 @@ the value of `EqualityContract == other.EqualityContract`.
 
 The record type includes synthesized `==` and `!=` operators equivalent to operators declared as follows:
 ```C#
-public static bool operator==(R? r1, R? r2)
-    => (object)r1 == r2 || (r1?.Equals(r2) ?? false);
-public static bool operator!=(R? r1, R? r2)
-    => !(r1 == r2);
+public static bool operator==(R? left, R? right)
+    => (object)left == right || (left?.Equals(right) ?? false);
+public static bool operator!=(R? left, R? right)
+    => !(left == right);
 ```
 The `Equals` method called by the `==` operator is the `Equals(R? other)` method specified above. The `!=` operator delegates to the `==` operator. It is an error if the operators are declared explicitly.
     
@@ -137,10 +137,10 @@ class R1 : IEquatable<R1>
             EqualityContract == other.EqualityContract &&
             EqualityComparer<T1>.Default.Equals(P1, other.P1);
     }
-    public static bool operator==(R1? r1, R1? r2)
-        => (object)r1 == r2 || (r1?.Equals(r2) ?? false);
-    public static bool operator!=(R1? r1, R1? r2)
-        => !(r1 == r2);    
+    public static bool operator==(R1? left, R1? right)
+        => (object)left == right || (left?.Equals(right) ?? false);
+    public static bool operator!=(R1? left, R1? right)
+        => !(left == right);
     public override int GetHashCode()
     {
         return Combine(EqualityComparer<Type>.Default.GetHashCode(EqualityContract),
@@ -159,10 +159,10 @@ class R2 : R1, IEquatable<R2>
         return base.Equals((R1?)other) &&
             EqualityComparer<T2>.Default.Equals(P2, other.P2);
     }
-    public static bool operator==(R2? r1, R2? r2)
-        => (object)r1 == r2 || (r1?.Equals(r2) ?? false);
-    public static bool operator!=(R2? r1, R2? r2)
-        => !(r1 == r2);    
+    public static bool operator==(R2? left, R2? right)
+        => (object)left == right || (left?.Equals(right) ?? false);
+    public static bool operator!=(R2? left, R2? right)
+        => !(left == right);
     public override int GetHashCode()
     {
         return Combine(base.GetHashCode(),
@@ -181,10 +181,10 @@ class R3 : R2, IEquatable<R3>
         return base.Equals((R2?)other) &&
             EqualityComparer<T3>.Default.Equals(P3, other.P3);
     }
-    public static bool operator==(R3? r1, R3? r2)
-        => (object)r1 == r2 || (r1?.Equals(r2) ?? false);
-    public static bool operator!=(R3? r1, R3? r2)
-        => !(r1 == r2);    
+    public static bool operator==(R3? left, R3? right)
+        => (object)left == right || (left?.Equals(right) ?? false);
+    public static bool operator!=(R3? left, R3? right)
+        => !(left == right);
     public override int GetHashCode()
     {
         return Combine(base.GetHashCode(),
@@ -385,6 +385,7 @@ For a record:
 * A public `get` and `init` auto-property is created (see separate `init` accessor specification).
   An inherited `abstract` property with matching type is overridden.
   It is an error if the inherited property does not have `public` overridable `get` and `init` accessors.
+  It is an error if the inherited property is hidden.  
   The auto-property is initialized to the value of the corresponding primary constructor parameter.
   Attributes can be applied to the synthesized auto-property and its backing field by using `property:` or `field:`
   targets for attributes syntactically applied to the corresponding record parameter.  
