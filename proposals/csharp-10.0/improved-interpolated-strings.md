@@ -35,8 +35,8 @@ convenient interpolation syntax.
 We introduce a new handler pattern that can represent an interpolated string passed as an argument to a method. The simple English of the pattern is as follows:
 
 When an _interpolated\_string\_expression_ is passed as an argument to a method, we look at the type of the parameter. If the parameter type has a constructor
-that can be invoked with 2 int parameters, `literalLength` and `formattedCount`, optionally takes a parameter the receiver is convertible to,
-and has an out parameter of the type of original method's parameter and that type has instance `AppendLiteral` and `AppendFormatted` methods that
+that can be invoked with 2 int parameters, `literalLength` and `formattedCount`, optionally takes additional parameters specified by an attribute on the original
+parameter, optionally has an out boolean trailing parameter, and the type of the original parameter has instance `AppendLiteral` and `AppendFormatted` methods that
 can be invoked for every part of the interpolated string, then we lower the interpolation using that, instead of into a traditional call to
 `string.Format(formatStr, args)`. A more concrete example is helpful for picturing this:
 
@@ -61,16 +61,14 @@ public ref struct TraceLoggerParamsInterpolatedStringHandler
         _logLevelEnabled = logger.EnabledLevel;
     }
 
-    public bool AppendLiteral(string s)
+    public void AppendLiteral(string s)
     {
         // Store and format part as required
-        return true;
     }
 
-    public bool AppendFormatted<T>(T t)
+    public void AppendFormatted<T>(T t)
     {
         // Store and format part as required
-        return true;
     }
 }
 
@@ -97,15 +95,17 @@ logger.LogTrace($"{name} will never be printed because info is < trace!");
 var name = "Fred Silberberg";
 var receiverTemp = logger;
 var handler = new TraceLoggerParamsInterpolatedStringHandler(literalLength: 47, formattedCount: 1, receiverTemp, out var handlerIsValid);
-_ = handlerIsValid &&
-    handler.AppendFormatted(name) &&
+if (handlerIsValid)
+{
+    handler.AppendFormatted(name);
     handler.AppendLiteral(" will never be printed because info is < trace!");
+}
 receiverTemp.LogTrace(handler);
 ```
 
-Here, because `TraceLoggerParamsInterpolatedStringHandler` has a constructor with the correct parameters and returns the type the `LogTrace` call was expecting,
-we say that the interpolated string has an implicit handler conversion to that parameter, and it lowers to the pattern shown above. The specese needed for this
-is a bit complicated, and is expanded below.
+Here, because `TraceLoggerParamsInterpolatedStringHandler` has a constructor with the correct parameters, we say that the interpolated string
+has an implicit handler conversion to that parameter, and it lowers to the pattern shown above. The specese needed for this is a bit complicated,
+and is expanded below.
 
 The rest of this proposal will use `Append...` to refer to either of `AppendLiteral` or `AppendFormatted` in cases when both are applicable.
 
@@ -165,16 +165,16 @@ We adjust the wording of the [applicable function member algorithm](https://gith
 as follows (a new sub-bullet is added to each section, in bold):
 
 A function member is said to be an ***applicable function member*** with respect to an argument list `A` when all of the following are true:
-*  Each argument in `A` corresponds to a parameter in the function member declaration as described in [Corresponding parameters](expressions.md#corresponding-parameters), and any parameter to which no argument corresponds is an optional parameter.
+*  Each argument in `A` corresponds to a parameter in the function member declaration as described in [Corresponding parameters](../../spec/expressions.md#corresponding-parameters), and any parameter to which no argument corresponds is an optional parameter.
 *  For each argument in `A`, the parameter passing mode of the argument (i.e., value, `ref`, or `out`) is identical to the parameter passing mode of the corresponding parameter, and
-   *  for a value parameter or a parameter array, an implicit conversion ([Implicit conversions](conversions.md#implicit-conversions)) exists from the argument to the type of the corresponding parameter, or
+   *  for a value parameter or a parameter array, an implicit conversion ([Implicit conversions](../../spec/conversions.md#implicit-conversions)) exists from the argument to the type of the corresponding parameter, or
    *  **for a `ref` parameter whose type is a struct type, an implicit _interpolated\_string\_handler\_conversion_ exists from the argument to the type of the corresponding parameter, or**
    *  for a `ref` or `out` parameter, the type of the argument is identical to the type of the corresponding parameter. After all, a `ref` or `out` parameter is an alias for the argument passed.
 
 For a function member that includes a parameter array, if the function member is applicable by the above rules, it is said to be applicable in its ***normal form***. If a function member that includes a parameter array is not applicable in its normal form, the function member may instead be applicable in its ***expanded form***:
 *  The expanded form is constructed by replacing the parameter array in the function member declaration with zero or more value parameters of the element type of the parameter array such that the number of arguments in the argument list `A` matches the total number of parameters. If `A` has fewer arguments than the number of fixed parameters in the function member declaration, the expanded form of the function member cannot be constructed and is thus not applicable.
 *  Otherwise, the expanded form is applicable if for each argument in `A` the parameter passing mode of the argument is identical to the parameter passing mode of the corresponding parameter, and
-   *  for a fixed value parameter or a value parameter created by the expansion, an implicit conversion ([Implicit conversions](conversions.md#implicit-conversions)) exists from the type of the argument to the type of the corresponding parameter, or
+   *  for a fixed value parameter or a value parameter created by the expansion, an implicit conversion ([Implicit conversions](../../spec/conversions.md#implicit-conversions)) exists from the type of the argument to the type of the corresponding parameter, or
    *  **for a `ref` parameter whose type is a struct type, an implicit _interpolated\_string\_handler\_conversion_ exists from the argument to the type of the corresponding parameter, or**
    *  for a `ref` or `out` parameter, the type of the argument is identical to the type of the corresponding parameter.
 
@@ -191,8 +191,8 @@ following:
 Given an implicit conversion `C1` that converts from an expression `E` to a type `T1`, and an implicit conversion `C2` that converts from an expression `E` to a type `T2`, `C1` is a ***better conversion*** than `C2` if:
 1. `E` is a non-constant _interpolated\_string\_expression_, `C1` is an _implicit\_string\_handler\_conversion_, `T1` is an _applicable\_interpolated\_string\_handler\_type_, and `C2` is not an _implicit\_string\_handler\_conversion_, or
 2. `E` does not exactly match `T2` and at least one of the following holds:
-    * `E` exactly matches `T1` ([Exactly matching Expression](expressions.md#exactly-matching-expression))
-    * `T1` is a better conversion target than `T2` ([Better conversion target](expressions.md#better-conversion-target))
+    * `E` exactly matches `T1` ([Exactly matching Expression](../../spec/expressions.md#exactly-matching-expression))
+    * `T1` is a better conversion target than `T2` ([Better conversion target](../../spec/expressions.md#better-conversion-target))
 
 This does mean that there are some potentially non-obvious overload resolution rules, depending on whether the interpolated string in question is a constant-expression or not. For example:
 
@@ -291,9 +291,68 @@ as a _member\_access_ through type `T`.
     * If no single-best method was found, the result of overload resolution is ambiguous, an error is produced, and no further steps are taken.
 4. Final validation on `F` is performed.
     * If any element of `A` occurred lexically after `i`, an error is produced and no further steps are taken.
+    * If any `A` requests the receiver of `F`, and `F` is an indexer being used as an _initializer\_target_ in a _member\_initializer_, then an error is reported and no further steps are taken.
 
 Note: the resolution here intentionally do _not_ use the actual expressions passed as other arguments for `Argx` elements. We only consider the types post-conversion. This makes sure that we
 don't have double-conversion issues, or unexpected cases where a lambda is bound to one delegate type when passed to `M1` and bound to a different delegate type when passed to `M`.
+
+Note: We report an error for indexers uses as member initializers because of the order of evaluation for nested member initializers. Consider this code snippet:
+
+```cs
+
+var x1 = new C1 { C2 = { [GetString()] = { A = 2, B = 4 } } };
+
+/* Lowering:
+__c1 = new C1();
+string argTemp = GetString();
+__c1.C2[argTemp][1] = 2;
+__c1.C2[argTemp][3] = 4;
+
+Prints:
+GetString
+get_C2
+get_C2
+*/
+
+string GetString()
+{
+    Console.WriteLine("GetString");
+    return "";
+}
+
+class C1
+{
+    private C2 c2 = new C2();
+    public C2 C2 { get { Console.WriteLine("get_C2"); return c2; } set { } }
+}
+
+class C2
+{
+    public C3 this[string s]
+    {
+        get => new C3();
+        set { }
+    }
+}
+
+class C3
+{
+    public int A
+    {
+        get => 0;
+        set { }
+    }
+    public int B
+    {
+        get => 0;
+        set { }
+    }
+}
+```
+
+The arguments to `__c1.C2[]` are evaluated _before_ the receiver of the indexer. While we could come up with a lowering that works for this scenario (either by creating a temp for `__c1.C2`
+and sharing it across both indexer invocations, or only using it for the first indexer invocation and sharing the argument across both invocations) we think that any lowering would be
+confusing for what we believe is a pathological scenario. Therefore, we forbid the scenario entirely.
 
 **~~Open Question~~**:
 

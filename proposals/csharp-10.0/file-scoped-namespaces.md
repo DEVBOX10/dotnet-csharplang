@@ -1,8 +1,8 @@
-## File Scoped Namespaces
+# File Scoped Namespaces
 
-### Summary
+## Summary
 
-Allow a simpler format for the common case of file containing only one namespace in it.  This format is `namespace X.Y.Z;` (note the semicolon and lack of braces).  This allows for files like so:
+File scoped namespaces use a less verbose format for the typical case of files containing only one namespace.  The file scoped namespace format is `namespace X.Y.Z;` (note the semicolon and lack of braces).  This allows for files like the following:
 
 ```c#
 namespace X.Y.Z;
@@ -16,9 +16,9 @@ class X
 
 The semantics are that using the `namespace X.Y.Z;` form is equivalent to writing `namespace X.Y.Z { ... }` where the remainder of the file following the file-scoped namespace is in the `...` section of a standard namespace declaration.
 
-### Motivation
+## Motivation
 
-Analysis of the C# ecosystem shows that around 99.7% (or more) files are all of either one of these forms:
+Analysis of the C# ecosystem shows that approximately 99.7% files are all of either one of these forms:
 
 ```c#
 namespace X.Y.Z
@@ -44,11 +44,11 @@ However, both these forms force the user to indent the majority of their code an
 
 The primary goal of the feature therefore is to meet the needs of the majority of the ecosystem with less unnecessary boilerplate.
 
-### Detailed design
+## Detailed design
 
 This proposal takes the form of a diff to the existing https://github.com/dotnet/csharplang/blob/main/spec/namespaces.md#compilation-units section of the specification.
 
-#### Diff
+### Diff
 
 ~~A *compilation_unit* defines the overall structure of a source file. A compilation unit consists of zero or more *using_directive*s followed by zero or more *global_attributes* followed by zero or more *namespace_member_declaration*s.~~
 
