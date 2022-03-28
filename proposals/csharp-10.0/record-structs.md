@@ -21,13 +21,13 @@ definite assignment for `this` in constructor, destructors, ...).
 Record structs will also follow the same rules as structs for parameterless instance constructors and field initializers,
 but this document assumes that we will lift those restrictions for structs generally.
 
-See https://github.com/dotnet/csharplang/blob/master/spec/structs.md
+See [§15.4.9](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/structs.md#1549-constructors)
 See [parameterless struct constructors](./parameterless-struct-constructors.md) spec.
 
 Record structs cannot use `ref` modifier.
 
 At most one partial type declaration of a partial record struct may provide a `parameter_list`.
-The `parameter_list` may not be empty.
+The `parameter_list` may be empty.
 
 Record struct parameters cannot use `ref`, `out` or `this` modifiers (but `in` and `params` are allowed).
 
@@ -38,8 +38,7 @@ Members are synthesized unless a member with a "matching" signature is declared 
 an accessible concrete non-virtual member with a "matching" signature is inherited.
 Two members are considered matching if they have the same
 signature or would be considered "hiding" in an inheritance scenario.
-See https://github.com/dotnet/csharplang/blob/master/spec/basic-concepts.md#signatures-and-overloading
-
+See Signatures and overloading [§7.6](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/basic-concepts.md#76-signatures-and-overloading).
 It is an error for a member of a record struct to be named "Clone".
 
 It is an error for an instance field of a record struct to have an unsafe type.
@@ -210,6 +209,19 @@ additional members with the same conditions as the members above.
 A record struct has a public constructor whose signature corresponds to the value parameters of the
 type declaration. This is called the primary constructor for the type. It is an error to have a primary
 constructor and a constructor with the same signature already present in the struct.
+If the type declaration does not include a parameter list, no primary constructor is generated.
+
+```csharp
+record struct R1
+{
+    public R1() { } // ok
+}
+
+record struct R2()
+{
+    public R2() { } // error: 'R2' already defines constructor with same parameter types
+}
+```
 
 Instance field declarations for a record struct are permitted to include variable initializers.
 If there is no primary constructor, the instance initializers execute as part of the parameterless constructor.
@@ -225,7 +237,7 @@ would shadow members. Static members would also be useable.
 
 A warning is produced if a parameter of the primary constructor is not read.
 
-The definite assigment rules for struct instance constructors apply to the primary constructor of record structs. For instance, the following
+The definite assignment rules for struct instance constructors apply to the primary constructor of record structs. For instance, the following
 is an error:
 
 ```csharp

@@ -135,6 +135,8 @@ void G() {
 }
 ```
 
+`async` methods can have null-checked parameters. The null check occurs when the method is invoked.
+
 The syntax is also valid on parameters to iterator methods. Unlike other code in the iterator the `null` validation will
 occur when the iterator method is invoked, not when the underlying enumerator is walked. This is true for traditional
 or `async` iterators.
@@ -193,7 +195,7 @@ be issued by the compiler:
 ``` csharp
 void WarnCase<T>(
     string? name!!, // Warning: combining explicit null checking with a nullable type
-    T value1 // Okay
+    T value1!! // Okay
 )
 ```
 

@@ -193,7 +193,7 @@ Compound assignment operations `x op= y` where `x` or `y` are native ints follow
 Specifically the expression is bound as `x = (T)(x op y)` where `T` is the type of `x` and where `x` is only evaluated once.
 
 The shift operators should mask the number of bits to shift - to 5 bits if `sizeof(nint)` is 4, and to 6 bits if `sizeof(nint)` is 8.
-(see [shift operators](../../spec/expressions.md#shift-operators) in C# spec).
+(see [§11.10](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/expressions.md#1110-shift-operators)) in C# spec).
 
 The C#9 compiler will report errors binding to predefined native integer operators when compiling with an earlier language version,
 but will allow use of predefined conversions to and from native integers.
@@ -217,6 +217,30 @@ class B : A
     }
 }
 ```
+
+### Pointer arithmetic
+There are no predefined operators in C# for pointer addition or subtraction with native integer offsets.
+Instead, `nint` and `nuint` values are promoted to `long` and `ulong` and pointer arithmetic uses predefined operators for those types.
+```C#
+static T* AddLeftS(nint x, T* y) => x + y;   // T* operator +(long left, T* right)
+static T* AddLeftU(nuint x, T* y) => x + y;  // T* operator +(ulong left, T* right)
+static T* AddRightS(T* x, nint y) => x + y;  // T* operator +(T* left, long right)
+static T* AddRightU(T* x, nuint y) => x + y; // T* operator +(T* left, ulong right)
+static T* SubRightS(T* x, nint y) => x - y;  // T* operator -(T* left, long right)
+static T* SubRightU(T* x, nuint y) => x - y; // T* operator -(T* left, ulong right)
+```
+
+### Binary numeric promotions
+The _binary numeric promotions_ informative text (see [§11.4.7.3](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/expressions.md#11473-binary-numeric-promotions)) in C# spec) is updated as follows:
+
+> -   …
+> -   Otherwise, if either operand is of type `ulong`, the other operand is converted to type `ulong`, or a binding-time error occurs if the other operand is of type `sbyte`, `short`, `int`, **`nint`**, or `long`.
+> -   **Otherwise, if either operand is of type `nuint`, the other operand is converted to type `nuint`, or a binding-time error occurs if the other operand is of type `sbyte`, `short`, `int`, `nint`, or `long`.**
+> -   Otherwise, if either operand is of type `long`, the other operand is converted to type `long`.
+> -   Otherwise, if either operand is of type `uint` and the other operand is of type `sbyte`, `short`, **`nint`,** or `int`, both operands are converted to type `long`.
+> -   Otherwise, if either operand is of type `uint`, the other operand is converted to type `uint`.
+> -   **Otherwise, if either operand is of type `nint`, the other operand is converted to type `nint`.**
+> -   Otherwise, both operands are converted to type `int`.
 
 ### Dynamic
 
@@ -279,25 +303,25 @@ static object GetItem(object[] array, nint index)
 }
 ```
 
-`nint` and `nuint` can be used as an `enum` base type.
+`nint` and `nuint` cannot be used as an `enum` base type from C#.
 ```C#
-enum E : nint // ok
+enum E : nint // error: byte, sbyte, short, ushort, int, uint, long, or ulong expected
 {
 }
 ```
 
-Reads and writes are atomic for types `nint`, `nuint`, and `enum` with base type `nint` or `nuint`.
+Reads and writes are atomic for `nint` and `nuint`.
 
 Fields may be marked `volatile` for types `nint` and `nuint`.
 [ECMA-334](https://www.ecma-international.org/publications/files/ECMA-ST/ECMA-334.pdf) 15.5.4 does not include `enum` with base type `System.IntPtr` or `System.UIntPtr` however.
 
-`default(nint)` and `new nint()` are equivalent to `(nint)0`.
+`default(nint)` and `new nint()` are equivalent to `(nint)0`; `default(nuint)` and `new nuint()` are equivalent to `(nuint)0`.
 
-`typeof(nint)` is `typeof(IntPtr)`.
+`typeof(nint)` is `typeof(IntPtr)`; `typeof(nuint)` is `typeof(UIntPtr)`.
 
-`sizeof(nint)` is supported but requires compiling in an unsafe context (as does `sizeof(IntPtr)`).
-The value is not a compile-time constant.
-`sizeof(nint)` is implemented as `sizeof(IntPtr)` rather than `IntPtr.Size`.
+`sizeof(nint)` and `sizeof(nuint)` are supported but require compiling in an unsafe context (as required for `sizeof(IntPtr)` and `sizeof(UIntPtr)`).
+The values are not compile-time constants.
+`sizeof(nint)` is implemented as `sizeof(IntPtr)` rather than `IntPtr.Size`; `sizeof(nuint)` is implemented as `sizeof(UIntPtr)` rather than `UIntPtr.Size`.
 
 Compiler diagnostics for type references involving `nint` or `nuint` report `nint` or `nuint` rather than `IntPtr` or `UIntPtr`.
 

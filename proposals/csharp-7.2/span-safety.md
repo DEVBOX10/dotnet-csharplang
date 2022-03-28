@@ -147,11 +147,13 @@ The precise rules for computing the *safe-to-return* status of an expression, an
 
 The *ref-safe-to-escape* is a scope, enclosing an lvalue expression, to which it is safe for a ref to the lvalue to escape to. If that scope is the entire method, we say that a ref to the lvalue is *safe to return* from the method.
 
+The *ref-safe-to-escape* scope for an lvalue expression can never be to a greater scope than the *safe-to-escape* for the same value. That means when the spec limits the *safe-to-escape* of a value it is implicitly also limiting the *ref-safe-to-escape* as well. However *ref-safe-to-escape* scope can be to a smaller scope than *safe-to-escape*. Consider that non-ref locals have *safe-to-escape* scope outside method but *ref-safe-to-escape* inside the method.
+
 ### safe-to-escape
 
 The *safe-to-escape* is a scope, enclosing an expression, to which it is safe for the value to escape to. If that scope is the entire method, we say that the value is *safe to return* from the method.
 
-An expression whose type is not a `ref struct` type is *safe-to-return* from the entire enclosing method. Otherwise we refer to the rules below.
+An expression whose type is not a `ref struct` type is always *safe-to-return* from the entire enclosing method. Otherwise we refer to the rules below.
 
 #### Parameters
 
@@ -271,7 +273,7 @@ We wish to ensure that no `ref` local variable, and no variable of `ref struct` 
   - No instance method declared in `object` or in `System.ValueType` but not overridden in a `ref struct` type may be called with a receiver of that `ref struct` type.
   - No instance method of a `ref struct` type may be captured by method conversion to a delegate type.
 
-- For a ref reassignment `ref e1 = ref e2`, the *ref-safe-to-escape* of `e2` must be at least as wide a scope as the *ref-safe-to-escape* of `e1`.
+- For a ref reassignment `e1 = ref e2`, the *ref-safe-to-escape* of `e2` must be at least as wide a scope as the *ref-safe-to-escape* of `e1`.
 
 - For a ref return statement `return ref e1`, the *ref-safe-to-escape* of `e1` must be *ref-safe-to-escape* from the entire method. (TODO: Do we also need a rule that `e1` must be *safe-to-escape* from the entire method, or is that redundant?)
 
