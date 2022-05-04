@@ -7,40 +7,90 @@ All schedule items must have a public issue or checked in proposal that can be l
 
 ## Schedule when convenient
 
+* Variable declarations under disjunctive patterns (Fred/Julien): https://github.com/dotnet/csharplang/blob/main/proposals/pattern-variables.md
 
 ## Recurring topics
 
 - *Triage championed features and milestones*
 - *Design review*
 
+## May 23, 2022
 
-## Apr 27, 2022
+## May 11, 2022
 
-## Apr 25, 2022
+## May 9, 2022
 
-## Apr 18, 2022
-
-## Apr 13, 2022
-
-## Apr 11, 2022
-
-## Apr 6, 2022
-
-- Feedback on `!!`: https://github.com/dotnet/csharplang/blob/main/proposals/param-nullchecking.md
-
-## Mar 30, 2022
-
-- Open questions with static virtual members (Aleksey): https://github.com/dotnet/csharplang/blob/main/proposals/static-abstracts-in-interfaces.md
-
-## Mar 28, 2022
-
-- Redeclaration in patterns (Julien): https://github.com/dotnet/csharplang/blob/bb8b0d8b12862ec0e4c04848fe47cff985eaa7a7/proposals/pattern-variables.md
-- Disallow interfaces with static virtual member as type arguments? (Mads): https://github.com/dotnet/csharplang/issues/5955
-- Self-constraints? (Mads): https://github.com/dotnet/csharplang/issues/5413#issuecomment-1079584415
+- Numeric IntPtr (Julien): https://github.com/dotnet/csharplang/issues/6065
 
 # C# Language Design Notes for 2022
 
 Overview of meetings and agendas for 2022
+
+## May 2, 2022
+
+[C# Language Design Meeting for May 2nd, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-05-02.md)
+
+- Effect of `SetsRequiredMembers` on nullable analysis
+- `field` questions
+    - Partial overrides of virtual properties
+    - Definite assignment of manually implemented setters
+
+## Apr 27, 2022
+
+[C# Language Design Meeting for April 27th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-04-27.md)
+
+- Default parameter values in lambdas
+- Null-conditional assignment
+
+## Apr 25, 2022
+
+[C# Language Design Meeting for April 25th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-04-25.md)
+
+- `ref readonly` method parameters
+- Inconsistencies around accessibility checks for interface implementations
+
+## Apr 18, 2022
+
+[C# Language Design Meeting for April 18th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-04-18.md)
+
+1. Issues with Utf8 string literals
+2. Ref and ref struct scoping modifiers
+
+## Apr 13, 2022
+
+[C# Language Design Meeting for April 13th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-04-13.md)
+
+1. Parameter null checking
+2. File-scoped types
+
+## Apr 11, 2022
+
+[C# Language Design Meeting for April 11th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-04-11.md)
+
+1. Relax restrictions on braces on raw interpolated strings
+2. Self-type stopgap attribute
+
+## Apr 6, 2022
+
+[C# Language Design Meeting for April 6th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-04-06.md)
+
+1. Unresolved questions for static virtual members
+2. Parameter null checking
+
+## Mar 30, 2022
+
+[C# Language Design Meeting for March 30th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-03-30.md)
+
+1. Definite assignment in struct constructors calling `: this()`
+2. `file private` accessibility
+
+## Mar 28, 2022
+
+[C# Language Design Meeting for March 28th, 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-03-28.md)
+
+1. Variable declarations under disjunctive patterns
+2. Type hole in static abstracts
+3. Self types
 
 ## Mar 23, 2022
 
