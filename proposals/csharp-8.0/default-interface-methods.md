@@ -113,7 +113,7 @@ interface IB : IA
 }
 interface IC : IA
 {
-    void M() { WriteLine("IB.M"); } // Creates a new M, unrelated to `IA.M`. Warning
+    void M() { WriteLine("IC.M"); } // Creates a new M, unrelated to `IA.M`. Warning
 }
 ```
 
@@ -585,7 +585,7 @@ class Derived : Base, IB // allowed?
 {
     static void Main()
     {
-        Ia a = new Derived();
+        IA a = new Derived();
         a.M();           // what does it do?
     }
 }

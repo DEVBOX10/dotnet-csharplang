@@ -108,9 +108,15 @@ public class C
 }
 ```
 
-`required` is only valid in `class`, `struct`, and `record` types. It is not valid in `interface` types.
+`required` is only valid in `class`, `struct`, and `record` types. It is not valid in `interface` types. `required` cannot be combined with the following modifiers:
 
-`required` is not allowed to be applied to `ref` returning properties or, when they are added, `ref` fields.
+* `fixed`
+* `ref readonly`
+* `ref`
+* `const`
+* `static`
+
+`required` is not allowed to be applied to indexers.
 
 The compiler will issue a warning when `Obsolete` is applied to a required member of a type and:
 
@@ -152,8 +158,10 @@ for the generic instantiation to ensure that the requirements are satisfied.
 
 ### Accessibility
 
-It is an error to mark a member required if the member is less accessible than the member's containing type. If the member is a field, it cannot be marked `readonly`. If the member is a
-property, it must have a setter or initer that is at least as accessible as the least accessible constructor of the member's containing type not marked with `SetsRequiredMembersAttribute`.
+It is an error to mark a member required if the member cannot be set in any context where the containing type is visible.
+* If the member is a field, it cannot be `readonly`.
+* If the member is a property, it must have a setter or initer at least as accessible as the member's containing type.
+
 This means the following cases are not allowed:
 
 ```cs
@@ -169,6 +177,11 @@ public class Base
 
     public required readonly int _field2; // Error: required fields cannot be readonly
     protected Base() { }
+
+    protected class Inner
+    {
+        protected required int PropInner { get; set; } // Error: PropInner cannot be set inside Base or Derived
+    }
 }
 public class Derived : Base, I
 {
@@ -197,10 +210,53 @@ this proposal should attempt to address it.
 
 ### Effect on nullable analysis
 
-Members that are marked `required` are not required to be initialized to a non-nullable state at the end of a constructor. These members are additionally considered by nullable analysis to
-be maybe-null at the beginning of any constructor in a type, unless chaining to a `this` or `base` constructor that is attributed with `SetsRequiredMembersAttribute`.
+Members that are marked `required` are not required to be initialized to a valid nullable state at the end of a constructor. All `required` members from this type and any base types are considered
+by nullable analysis to be default at the beginning of any constructor in that type, unless chaining to a `this` or `base` constructor that is attributed with `SetsRequiredMembersAttribute`.
 
-NB: `SetsRequiredMembersAttribute` does not bring back nullable warnings at the end of a constructor for members, as it is an escape hatch intended to inform the compiler to stop enforcing things.
+Nullable analysis will warn about all `required` members from the current and base types that do not have a valid nullable state at the end of a constructor attributed with `SetsRequiredMembersAttribute`.
+
+```cs
+#nullable enable
+public class Base
+{
+    public required string Prop1 { get; set; }
+
+    public Base() {}
+
+    [SetsRequiredMembers]
+    public Base(int unused) { Prop1 = ""; }
+}
+public class Derived : Base
+{
+    public required string Prop2 { get; set; }
+
+    [SetsRequiredMembers]
+    public Derived() : base()
+    {
+    } // Warning: Prop1 and Prop2 are possibly null.
+
+    [SetsRequiredMembers]
+    public Derived(int unused) : base()
+    {
+        Prop1.ToString(); // Warning: possibly null dereference
+        Prop2.ToString(); // Warning: possibly null dereference
+    }
+
+    [SetsRequiredMembers]
+    public Derived(int unused, int unused2) : this()
+    {
+        Prop1.ToString(); // Ok
+        Prop2.ToString(); // Ok
+    }
+
+    [SetsRequiredMembers]
+    public Derived(int unused1, int unused2, int unused3) : base(unused1)
+    {
+        Prop1.ToString(); // Ok
+        Prop2.ToString(); // Warning: possibly null dereference
+    }
+}
+```
 
 ### Metadata Representation
 
@@ -233,19 +289,19 @@ Any member that is marked `required` has a `RequiredMemberAttribute` applied to 
 defines `required` members but `B` does not add any new or override any existing `required` members, `B` will not be marked with a `RequiredMemberAttribute`.
 To fully determine whether there are any required members in `B`, checking the full inheritance hierarchy is necessary.
 
-Any constructor in a type with `required` members that does not have `SetsRequiredMembersAttribute` applied to it is marked with an `Obsolete` attribute with
-the string `"Types with required members are not supported in this version of your compiler"`, and the attribute is marked as an error, to prevent
-any older compilers from using these constructors. We don't use a `modreq` here because it is a goal to maintain binary compat: if the last `required`
-property was removed from a type, the compiler would no longer synthesize this `modreq`, which is a binary-breaking change and all consumers would
-need to be recompiled. A compiler that understands `required` members will ignore this obsolete attribute. Note that members can come from base types
-as well: even if there are no new `required` members in the current type, if any base type has `required` members, this `Obsolete` attribute will be
-generated. If the constructor already has an `Obsolete` attribute, no additional attribute will be generated. If a by-ref-like type also has `required`
-members, the generated `Obsolete` attribute will reference the `required` error message, under the assumption that if a compiler is new enough to
-understand `required` properties, it will also understand by-ref-like types.
+Any constructor in a type with `required` members that does not have `SetsRequiredMembersAttribute` applied to it is marked with two attributes:
+1. `System.Runtime.CompilerServices.CompilerFeatureRequiredAttribute` with the feature name `"RequiredMembers"`.
+2. `System.ObsoleteAttribute` with the string `"Types with required members are not supported in this version of your compiler"`, and the attribute is
+marked as an error, to prevent any older compilers from using these constructors.
 
-**TODO**: LDM has indicated that we desire some kind of dedicated poison attribute, specifically for compilers to indicate that a component is not
-usable in downlevel compilers without resorting to a modreq (ie, a binary breaking change). This will need to be designed and applied to the constructor
-in addition to Obsolete.
+We don't use a `modreq` here because it is a goal to maintain binary compat: if the last `required` property was removed from a type, the compiler would no
+longer synthesize this `modreq`, which is a binary-breaking change and all consumers would need to be recompiled. A compiler that understands `required`
+members will ignore this obsolete attribute. Note that members can come from base types as well: even if there are no new `required` members in the current
+type, if any base type has `required` members, this `Obsolete` attribute will be generated. If the constructor already has an `Obsolete` attribute, no
+additional `Obsolete` attribute will be generated.
+
+We use both `ObsoleteAttribute` and `CompilerFeatureRequiredAttribute` because the latter is new this release, and older compilers don't understand it. In the
+future, we may be able to drop the `ObsoleteAttribute` and/or not use it to protect new features, but for now we need both for full protection.
 
 To build the full list of `required` members `R` for a given type `T`, including all base types, the following algorithm is run:
 
@@ -258,28 +314,6 @@ To build the full list of `required` members `R` for a given type `T`, including
 
 ## Open Questions
 
-### Warning vs Error
-
-Should not setting a required member be a warning or an error? It is certainly possible to trick the system, via `Activator.CreateInstance(typeof(C))` or similar, which
-means we may not be able to fully guarantee all properties are always set. We also allow suppression of the diagnostics at the constructor-site by using the `!`, which
-we generally do not allow for errors. However, the feature is similar to readonly fields or init properties, in that we hard error if users attempt to set such a member
-after initialization, but they can be circumvented by reflection.
-
-### "Silly" diagnostics
-
-Given this code:
-
-```cs
-class C
-{
-    public required object? O;
-    public C() { O = null; }
-}
-```
-
-Should issue some kind of diagnostic that `O` is marked required, but never required in a contract? Developers might find marking properties as required to be useful
-as a safety net.
-
 ### Nested member initializers
 
 What will the enforcement mechanisms for nested member initializers be? Will they be disallowed entirely?
@@ -291,13 +325,13 @@ class Range
     public required Location End { get; init; }
 }
 
-class Point
+class Location
 {
     public required int Column { get; init; }
     public required int Line { get; init; }
 }
 
-_ = new Range { Start = { Column = 0, Line = 0 }, End = { Column = 1, Line = 0 } } // Would this be allowed if Point is a struct type?
+_ = new Range { Start = { Column = 0, Line = 0 }, End = { Column = 1, Line = 0 } } // Would this be allowed if Location is a struct type?
 _ = new Range { Start = new Location { Column = 0, Line = 0 }, End = new Location { Column = 1, Line = 0 } } // Or would this form be necessary instead?
 ```
 
@@ -422,3 +456,12 @@ embedded attributes for `nint`/nullable/tuple member names, it's closer to `Syst
 extension methods shipped.
 
 **Conclusion**: We will put both attributes in the BCL.
+
+### Warning vs Error
+
+Should not setting a required member be a warning or an error? It is certainly possible to trick the system, via `Activator.CreateInstance(typeof(C))` or similar, which
+means we may not be able to fully guarantee all properties are always set. We also allow suppression of the diagnostics at the constructor-site by using the `!`, which
+we generally do not allow for errors. However, the feature is similar to readonly fields or init properties, in that we hard error if users attempt to set such a member
+after initialization, but they can be circumvented by reflection.
+
+**Conclusion**: Errors.
