@@ -1,5 +1,7 @@
 # Raw string literal
 
+[!INCLUDE[Specletdisclaimer](../speclet-disclaimer.md)]
+
 ## Summary
 Allow a new form of string literal that starts with a minimum of three `"""` characters (but no maximum), optionally followed by a `new_line`, the content of the string, and then ends with the same number of quotes that the literal started with.  For example:
 
@@ -133,7 +135,7 @@ The above grammar for a `raw_string_literal` should be interpreted as:
 1. It starts with at least three quotes (but no upper bound on quotes).
 2. It then continues with contents on the same line as the starting quotes.  These contents on the same line can be blank, or non-blank. 'blank' is synonymous with 'entirely whitespace'.
 3. If the contents on that same line is non-blank no further content can follow. In other words the literal is required to end with the same number of quotes on that same line.
-4. If the contents on the same line is blank, then the literal can continue with a `new_line` and number of subsequent content lines and `new_line`s.
+4. If the contents on the same line is blank, then the literal can continue with a `new_line` and some number of subsequent content lines and `new_line`s.
     - A content line is any text except a `new_line`.
     - It then ends with a `new_line` some number (possibly zero) of `whitespace` and the same number of quotes that the literal started with.
 
@@ -248,7 +250,7 @@ var v1 = """
          """
 ```
 
-This is because the start of the raw string must have a `new_line` (which is does) but the end must have a `new_line` as well (which it does not).  The minimal legal `raw_string_literal` is:
+This is because the start of the raw string must have a `new_line` (which it does) but the end must have a `new_line` as well (which it does not).  The minimal legal `raw_string_literal` is:
 
 ```
 var v1 = """
@@ -484,9 +486,10 @@ The above is similar to the definition of `raw_string_literal` but with some imp
 1. It starts with at least one dollar sign (but no upper bound) and then three quotes (also with no upper bound).
 2. It then continues with content on the same line as the starting quotes.  This content on the same line can be blank, or non-blank. 'blank' is synonymous with 'entirely whitespace'.
 3. If the content on that same line is non-blank no further content can follow.  In other words the literal is required to end with the same number of quotes on that same line.
-4. If the contents on the same line is blank, then the literal can continue with a `new_line` and number of subsequent content lines and `new_line`s.
+4. If the contents on the same line is blank, then the literal can continue with a `new_line` and some number of subsequent content lines and `new_line`s.
     - A content line is any text except a `new_line`.
     - A content line can contain multiple `raw_interpolation` occurrences at any position.  The `raw_interpolation` must start with an equal number of open braces (`{`) as the number of dollar signs at the start of the literal.
+    - If 'indentation whitespace' is not-empty, a `raw_interpolation` cannot immediately follow a `new_line`.
     - The `raw_interpolation` will following the normal rules specified at [§11.7.3](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/expressions.md#1173-interpolated-string-expressions).  Any `raw_interpolation` must end with the same number of close braces (`}`) as dollar signs and open braces.
     - Any `interpolation` can itself contain new-lines within in the same manner as an `interpolation` in a normal `verbatim_string_literal` (`@""`).
     - It then ends with a `new_line` some number (possibly zero) of `whitespace` and the same number of quotes that the literal started with.

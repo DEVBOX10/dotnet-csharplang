@@ -1,5 +1,7 @@
 ﻿# Lambda improvements
 
+[!INCLUDE[Specletdisclaimer](../speclet-disclaimer.md)]
+
 ## Summary
 Proposed changes:
 1. Allow lambdas with attributes
@@ -30,7 +32,7 @@ app.MapAction((Func<Todo, Todo>)PostTodo);
 [HttpGet("/")] Todo GetTodo() => new(Id: 0, Name: "Name");
 app.MapAction(GetTodo);
 
-[HttpPost("/")] Todo PostTodo([FromBody] Todo todo) => todo);
+[HttpPost("/")] Todo PostTodo([FromBody] Todo todo) => todo;
 app.MapAction(PostTodo);
 ```
 

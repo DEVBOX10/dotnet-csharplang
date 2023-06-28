@@ -1,11 +1,13 @@
 Low Level Struct Improvements
 =====
 
+[!INCLUDE[Specletdisclaimer](../speclet-disclaimer.md)]
+
 ## Summary
 This proposal is an aggregation of several different proposals for `struct` performance improvements: `ref` fields and the ability to override lifetime defaults. The goal being a design which takes into account the various proposals to create a single overarching feature set for low level `struct` improvements.
 
 ## Motivation
-Earlier versions of C# added a number of low level performance features to the language: `ref` returns, `ref struct`, function pointers, etc. ... These enabled .NET developers to create write highly performant code while continuing to leverage the C# language rules for type and memory safety.  It also allowed the creation of fundamental performance types in the .NET libraries like `Span<T>`.
+Earlier versions of C# added a number of low level performance features to the language: `ref` returns, `ref struct`, function pointers, etc. ... These enabled .NET developers to write highly performant code while continuing to leverage the C# language rules for type and memory safety.  It also allowed the creation of fundamental performance types in the .NET libraries like `Span<T>`.
 
 As these features have gained traction in the .NET ecosystem developers, both internal and external, have been providing us with information on remaining friction points in the ecosystem. Places where they still need to drop to `unsafe` code to get their work done, or require the runtime to special case types like `Span<T>`. 
 
@@ -180,7 +182,7 @@ readonly ref struct Span<T>
 }
 ```
 
-The change to ref reassignment rules means `ref` parameters can now escape from a method as a `ref` field in a `ref struct` value. As discussed in the [compat considerations section](#new-span-challenges) this can change the rules for existing APIs that never intended for `ref` parameters to escape as a `ref` field. The lifetime rules for parameters are based solely on their declaration not on their usage. All `ref` and `in` parameters are *ref-safe-to-escape* to the *calling method* and hence can now be returned by `ref` or a `ref` field. In order to support APIs having `ref` parameters that can be escaping or non-escaping, and thus restore C# 10 call site semantics, the language will introduce limited lifetime annotations.
+The change to ref reassignment rules means `ref` parameters can now escape from a method as a `ref` field in a `ref struct` value. As discussed in the [compat considerations section](#new-span-challenges) this can change the rules for existing APIs that never intended for `ref` parameters to escape as a `ref` field. The lifetime rules for parameters are based solely on their declaration not on their usage. All `ref` and `in` parameters have *ref-safe-to-escape* of *return only* and hence can now be returned by `ref` or a `ref` field. In order to support APIs having `ref` parameters that can be escaping or non-escaping, and thus restore C# 10 call site semantics, the language will introduce limited lifetime annotations.
 
 #### `scoped` modifier
 <a name="rules-scoped"></a>
@@ -274,7 +276,7 @@ Span<byte> Read(Span<byte> buffer, out int read)
     // .. 
 }
 
-Span<int> Use()
+Span<byte> Use()
 {
     var buffer = new byte[256];
 
@@ -353,17 +355,21 @@ The language "does not contribute" means the arguments are simply not considered
 
 The method invocation rules can now be simplified. The receiver no longer needs to be special cased, in the case of `struct` it is now simply a `scoped ref T`. The value rules need to change to account for `ref` field returns:
 
-> A value resulting from a method invocation `e1.M(e2, ...)` is *safe-to-escape* from the narrowest of the following scopes:
+> A value resulting from a method invocation `e1.M(e2, ...)`, where `M()` does not return ref-to-ref-struct, is *safe-to-escape* from the narrowest of the following scopes:
 > 1. The *calling method*
 > 2. When the return is a `ref struct` the *safe-to-escape* contributed by all argument expressions
 > 3. When the return is a `ref struct` the *ref-safe-to-escape* contributed by all `ref` arguments
+>
+> If `M()` does return ref-to-ref-struct, the *safe-to-escape* is the same as the *safe-to-escape* of all arguments which are ref-to-ref-struct. It is an error if there are multiple arguments with different *safe-to-escape* because of [method arguments must match](#rules-method-arguments-must-match).
 
 The `ref` calling rules can be simplified to:
 
-> A value resulting from a method invocation `ref e1.M(e2, ...)` is *ref-safe-to-escape* the narrowest of the following scopes:
+> A value resulting from a method invocation `ref e1.M(e2, ...)`, where `M()` does not return ref-to-ref-struct, is *ref-safe-to-escape* the narrowest of the following scopes:
 > 1. The *calling method*
 > 2. The *safe-to-escape* contributed by all argument expressions
 > 3. The *ref-safe-to-escape* contributed by all `ref` arguments
+>
+> If `M()` does return ref-to-ref-struct, the *ref-safe-to-escape* is the narrowest *ref-safe-to-escape* contributed by all arguments which are ref-to-ref-struct.
 
 This rule now lets us define the two variants of desired methods:
 
@@ -379,7 +385,7 @@ Span<int> CreateAndCapture(ref int value)
 {
     // Okay: value Rule 3 specifies that the safe-to-escape be limited to the ref-safe-to-escape
     // of the ref argument. That is the *calling method* for value hence this is not allowed.
-    return new Span<int>(ref value)
+    return new Span<int>(ref value);
 }
 
 Span<int> ComplexScopedRefExample(scoped ref Span<int> span)
@@ -403,6 +409,7 @@ Span<int> ComplexScopedRefExample(scoped ref Span<int> span)
 }
 ```
 
+### Method arguments must match
 <a name="rules-method-arguments-must-match"></a>
 
 The presence of `ref` fields means the rules around method arguments must match need to be updated as a `ref` parameter can now be stored as a field in a `ref struct` argument to the method. Previously the rule only had to consider another `ref struct` being stored as a field. The impact of this is discussed in [the compat considerations](#compat-considerations). The new rule is ... 
@@ -622,7 +629,7 @@ namespace System.Diagnostics.CodeAnalysis
 ```
 
 Detailed Notes:
-- An instance method or property annotated with `[UnscopedRef]` has *ref-safe-to-escape* of `this` set to the *calling method*. It means `this` is effectively a `ref` parameter to the method.
+- An instance method or property annotated with `[UnscopedRef]` has *ref-safe-to-escape* of `this` set to the *calling method*.
 - A member annotated with `[UnscopedRef]` cannot implement an interface.
 - It is an error to use `[UnscopedRef]` on 
     - A member that is not declared on a `struct`
@@ -661,7 +668,7 @@ To reduce the chance of breaking changes when recompiling with C#11, we will upd
 To enable this, the compiler will emit a new `[module: RefSafetyRules(11)]` attribute when the module is compiled with `-langversion:11` or higher or compiled with a corlib containing the feature flag for `ref` fields.
 
 The argument to the attribute indicates the language version of the _ref safety rules_ used when the module was compiled.
-The verion is currently fixed at `11` regardless of the actual language version passed to the compiler.
+The version is currently fixed at `11` regardless of the actual language version passed to the compiler.
 
 The expectation is that future versions of the compiler will update the ref safety rules and emit attributes with distinct versions.
 
@@ -692,6 +699,9 @@ namespace System.Runtime.CompilerServices
 ```
 
 ### Safe fixed size buffers
+
+Safe fixed size buffers was not delivered in C# 11. This feature may be implemented in a future version of C#.
+
 The language will relax the restrictions on fixed sized arrays such that they can be declared in safe code and the element type can be managed or unmanaged.  This will make types like the following legal:
 
 ```c#
@@ -782,7 +792,7 @@ There are considerations other parts of the development stack should consider wh
 The challenge in this proposal is the compatibility implications this design has to our existing [span safety rules](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-7.2/span-safety.md). While those rules fully support the concept of a `ref struct` having `ref` fields they do not allow for APIs, other than `stackalloc`, to capture `ref` state that refers to the stack. The span safety rules have a [hard assumption](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-7.2/span-safety.md#span-constructor) that a constructor of the form `Span(ref T value)` does not exist. That means the safety rules do not account for a `ref` parameter being able to escape as a `ref` field hence it allows for code like the following.
 
 ```c#
-Span<int> CreateSpan<int>()
+Span<int> CreateSpanOfInt()
 {
     // This is legal according to the 7.2 span rules because they do not account
     // for a constructor in the form Span(ref T value) existing. 
@@ -861,6 +871,197 @@ ref struct S<T>
 {
     object _o; // force managed 
     T _f; // maintain generic expansion protections
+}
+```
+
+### Annotations
+Lifetimes are most naturally expressed using types. A given program's lifetimes are safe when the lifetime types type check. While the syntax of C# implicitly adds lifetimes to values, there is an underlying type system that describes the fundamental rules here. It's often easier to discuss the implication of changes to the design in terms of these rules so they are included here for discussion sake.
+
+Note that this is not meant to be a 100% complete documentation. Documenting every single behavior isn't a goal here. Instead it's meant to establish a general understanding and common verbiage by which the model, and potential changes to it, can be discussed.
+
+Usually it's not necessary to directly talk about lifetime types. The exceptions are places where lifetimes can vary based on particular "instantiation" sites. This is a kind of polymorphism and we call these varying lifetimes "generic lifetimes", represented as generic parameters. C# does not provide syntax for expressing lifetime generics, so we define an implicit "translation" from C# to an expanded lowered language that contains explicit generic parameters.
+
+The below examples make use of named lifetimes. The syntax `$a` refers to a lifetime named `a`. It is a lifetime that has no meaning by itself but can be given a relationship to other lifetimes via the `where $a : $b` syntax. This establishes that `$a` is convertible to `$b`. It may help to think of this as establishing that `$a` is a lifetime at least as long as `$b`.
+
+There are a few predefined lifetimes for convenience and brevity below:
+
+- `$heap`: this is the lifetime of any value that exists on the heap. It is available in all scopes and method signatures.
+- `$local`: this is the lifetime of any value that exists on the method stack. It's effectively a name place holder for *current method*. It is implicitly defined in methods and can appear in method signatures except for any output position.
+- `$ro`: name place holder for the *return only* safe to escape scope
+- `$cm`: name place holder for the *calling method* safe to escape scope
+
+There are a few predefined relationships between lifetimes:
+
+- `where $heap : $a` for all lifetimes `$a`
+- `where $cm : $ro` 
+- `where $x : $local` for all predefined lifetimes. User defined lifetimes have no relationship to local unless explictly defined.
+
+Lifetime variables when defined on types can be invariant or covariant. These are expressed using the same syntax as generic parameters:
+
+```csharp
+// $this is covariant
+// $a is invariant
+ref struct S<out $this, $a> 
+```
+
+The lifetime of a ref is expressed by providing a lifetime argument to the ref. For example a `ref` that refers to the heap is expressed as `ref<$heap>`.
+
+When defining a constructor in the model the name `new` will be used for the method. It is necessary to have a parameter list for the returned value as well as the constructor arguments. This is necessary to express the relationship between constructor inputs and the constructed value. Rather than having `Span<$a><$ro>` the model will use `Span<$a> new<$ro>` instead. The type of `this` in the constructor, including lifetimes, will be the defined return value.
+
+The basic rules for the lifetime are defined as:
+
+- All lifetimes are expressed syntactically as generic arguments, coming before type arguments. This is true for predefined lifetimes except `$heap` and `$local`. 
+- All types `T` that are not a `ref struct` implicitly have lifetime of `T<$heap>`. This is implicit, there is no need to write `int<$heap>` in every sample.
+- For a ref field defined as `ref T<$l1, $l2, ... $ln>` all lifetimes `$l1` through `$ln` must be invariant. 
+- For a ref defined as `ref<$a> T<$b, ...>`, `$b` must wider or equal to `$a`
+- The `ref` of a variable has a lifetime of the 
+    - For a ref local, parameter, field or return of type `ref<$a> T` the lifetime is `$a`
+    - `$heap` for all reference types and fields of reference types
+    - `$local` for everything else
+- An assignment or return is legal when the underlying type conversion is legal
+- Lifetimes of expressions can be made explicit by using cast annotations:
+    - `(T<$a> expr)` the value lifetime is explicitly `$a` for `T<...>`
+    - `ref<$a> (T<$b>)expr` the value lifetime is `$b` for `T<...>` and the ref lifetime is `$a`.
+
+For the purpose of lifetime rules a `ref` is considered part of the type of the expression for purposes of conversions. It is logically represented by converting `ref<$a> T<...>` to `ref<$a, T<...>>` where `$a` is covariant and `T` is invariant. 
+
+Next let's define the rules that allow us to map C# syntax to the underlying model.
+
+The lifetime parameter `$this` on type definitions is _not_ predefined but it does have a few rules associated with it when it is defined:
+- It must be the first lifetime parameter.
+- It must be covariant: `out $this`. 
+- The lifetime parameters of all non-ref fields, and the ref lifetime of ref fields, must be `$this`
+
+For brevity sake a type which has no explicit lifetime parameters treated as if there is `out $this` defined and applied to all fields of the type. A type with a `ref` field must define explicit lifetime parameters.
+
+These rules exists to support our existing invariant that `T` can be assigned to `scoped T` for all types. That maps down to `T<$a, ...>` being assignable to `T<$local, ...>` for all lifetimes known to wider than ype of `$local`. Further this supports other items like being able to assign `Span<T>` from the heap to those on the stack. This does exclude types where fields have differing lifetimes for non-ref values but that is the reality of C# today. Changing that would require a significant change of C# rules that would need to be mapped out. 
+
+The type of `this` for a type `S<out $this, ...>` inside an instance method is implicitly defined as the following:
+- For normal instance method: `ref<$local> S<$ro, ...>`
+- For instance method annotated with `[UnscopedRef]`: `ref<$ro> S<$ro, ...>`
+The lack of an explicit `this` parameter forces the implicit rules here. For complex samples and discussions likely better to use an explicit parameter.
+
+The C# method syntax maps to the model in the following ways: 
+
+- `ref` parameters have a ref lifetime of `$ro`
+- parameters of type `ref struct` have a this lifetime of `$cm`
+- ref returns have a ref lifetime of `$ro`
+- returns of type `ref struct` have a value lifetime of `$ro`
+- `scoped` on a parameter or `ref` changes the lifetime to be `$local`
+
+Given that let's explore a simple example that demonstrates the model here: 
+
+```csharp
+ref int M1(ref int i) => ...
+
+// Maps to the following. 
+
+ref<$ro> int Identity<$ro>(ref<$ro> int i)
+{
+    // okay: has ref lifetime $ro which is equal to $ro
+    return ref i;
+
+    // okay: has ref lifetime $heap which convertible $ro
+    int[] array = new int[42];
+    return ref array[0];
+
+    // error: has ref lifetime $local which has no conversion to $a hence 
+    // it's illegal
+    int local = 42;
+    return ref local;
+}
+```
+
+Now let's explore the same example using a `ref struct`: 
+
+```csharp
+ref struct S
+{
+    ref int Field;
+
+    S(ref int f)
+    {
+        Field = ref f;
+    }
+}
+
+S M2(ref int i, S span1, scoped S span2) => ...
+
+// Maps to 
+
+ref struct S<out $this>
+{
+    // Implicitly 
+    ref<$this> int Field;
+
+    S<$ro> new<$ro>(ref<$ro> int f)
+    {
+        Field = ref f;
+    }
+}
+
+S<$ro> M2<$ro>(
+    ref<$ro> int i,
+    S<$ro> span1)
+    S<$local> span2)
+{
+    // okay: types match exactly
+    return span1;
+
+    // error: has lifetime $local which has no conversion to $ro
+    return span2;
+
+    // okay: type S<$heap> has a conversion to S<$ro> because $heap has a
+    // conversion to $ro and the first lifetime parameter of S<> is covariant
+    return default(S<$heap>)
+
+    // okay: the ref lifetime of ref $i is $ro so this is just an 
+    // identity conversion
+    S<$ro> local = new S<$ro>(ref $i);
+    return local;
+
+    int[] array = new int[42];
+    // okay: S<$heap> is convertible to S<$ro>
+    return new S<$heap>(ref<$heap> array[0]);
+
+    // okay: the parameter of the ctor is $ro ref int and the argument is $heap ref int. These 
+    // are convertible.
+    return new S<$ro>(ref<$heap> array[0]);
+
+    // error: has ref lifetime $local which has no conversion to $a hence 
+    // it's illegal
+    int local = 42;
+    return ref local;
+}
+```
+
+Next let's see how this helps with the cyclic self assignment problem:
+
+```csharp
+ref struct S
+{
+    int field;
+    ref int refField;
+
+    static void SelfAssign(ref S s)
+    {
+        s.refField = ref s.field;
+    }
+}
+
+// Maps to 
+
+ref struct S<out $this>
+{
+    int field;
+    ref<$this> int refField;
+
+    static void SelfAssign<$ro, $cm>(ref<$ro> S<$cm> s)
+    {
+        // error: the types work out here to ref<$cm> int = ref<$ro> int and that is 
+        // illegal as $ro has no conversion to $cm (the relationship is the other direction)
+        s.refField = ref<$ro> s.field;
+    }
 }
 ```
 
@@ -1198,57 +1399,20 @@ struct FrugalList<T>
 
     public int Count = 3;
 
+    public FrugalList(){}
+
     public ref T this[int index]
     {
         [UnscopedRef] get
         {
             switch (index)
             {
-                case 0: return ref _item1;
-                case 1: return ref _item2;
-                case 2: return ref _item3;
+                case 0: return ref _item0;
+                case 1: return ref _item1;
+                case 2: return ref _item2;
                 default: throw null;
             }
         }
-    }
-}
-```
-
-#### Stack based linked list
-
-```c#
-ref struct StackLinkedListNode<T>
-{
-    T _value;
-    ref StackLinkedListNode<T> _next;
-
-    public T Value => _value;
-
-    public bool HasNext => !Unsafe.IsNullRef(ref _next);
-
-    public ref StackLinkedListNode<T> Next 
-    {
-        get
-        {
-            if (!HasNext)
-            {
-                throw new InvalidOperationException("No next node");
-            }
-
-            return ref _next;
-        }
-    }
-
-    public StackLinkedListNode(T value)
-    {
-        this = default;
-        _value = value;
-    }
-
-    public StackLinkedListNode(T value, ref StackLinkedListNode<T> next)
-    {
-        _value = value;
-        _next = ref next;
     }
 }
 ```
@@ -1323,7 +1487,7 @@ ref struct RS
         // 
         // This is an lvalue invocation and following those rules the ref-safe-to-escape 
         // of the return is *current method*
-        return ref local4.Prop1;
+        return ref local4.Prop;
     }
 }
 ```
@@ -1338,7 +1502,6 @@ The reason for the following line in the [ref reassignment rules](#rules-ref-rea
 This is because the lifetime of the values pointed to by `ref` locations are invariant. The indirection prevents us from allowing any kind of variance here, even to narrower lifetimes. If narrowing is allowed then it opens up the following unsafe code:
 
 ```csharp
-ref struct RS { }
 void Example(ref Span<int> p)
 {
     Span<int> local = stackalloc int[42];
@@ -1426,7 +1589,7 @@ ref struct JsonReader
     Span<char> _buffer;
     int _position;
 
-    internal bool TextEquals(ReadOnySpan<char> text)
+    internal bool TextEquals(ReadOnlySpan<char> text)
     {
         var current = _buffer.Slice(_position, text.Length);
         return current == text;
@@ -1463,7 +1626,7 @@ ref struct JsonReader
     Span<char> _buffer;
     int _position;
 
-    internal bool TextEquals(scoped ReadOnySpan<char> text)
+    internal bool TextEquals(scoped ReadOnlySpan<char> text)
     {
         var current = _buffer.Slice(_position, text.Length);
         return current == text;
@@ -1560,7 +1723,7 @@ void M(ref S s)
     ...
 }
 
-S Usage()
+void Usage()
 {
     // safe-to-escape to calling method
     S local = default; 
@@ -1698,12 +1861,12 @@ Further a constructor must meet the following invariants:
 1. Ensure that `ref` parameters can be captured as `ref` fields. 
 2. Ensure that `ref` to fields of `this` cannot be escaped through `ref` parameters. That would violate [tricky ref assignment](#tricky-ref-assignment). 
 
-The intent is to pick the form that satisfies our invariants without introduction of any special rules for constructors. Given that the best model for constructors is viewing `this` as an `out` parameter. The *return-only* nature of the `out` allows us to satisfy all the invariants above without any special casing: 
+The intent is to pick the form that satisfies our invariants without introduction of any special rules for constructors. Given that the best model for constructors is viewing `this` as an `out` parameter. The *return only* nature of the `out` allows us to satisfy all the invariants above without any special casing: 
 
 ```c#
 public static void ctor(out S @this, ref int f)
 {
-    // The ref-safe-to-escape of `ref f` is *return-only* which is also the 
+    // The ref-safe-to-escape of `ref f` is *return only* which is also the 
     // safe-to-escape of `this.field` hence this assignment is allowed
     @this.field = ref f;
 }

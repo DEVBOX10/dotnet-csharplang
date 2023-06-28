@@ -1,9 +1,6 @@
 # Primary constructors
 
-* [x] Proposed
-* [ ] Prototype: Not started
-* [ ] Implementation: Not started
-* [ ] Specification: Not started
+[!INCLUDE[Specletdisclaimer](speclet-disclaimer.md)]
 
 ## Summary
 [summary]: #summary
@@ -29,7 +26,7 @@ public class C(bool b, int i, string s) : B(b) // b passed to base constructor
         get => s;
         set => s = value ?? throw new NullArgumentException(nameof(X));
     }
-    public C(string s) : this(0, s) { } // must call this(...)
+    public C(string s) : this(true, 0, s) { } // must call this(...)
 }
 ```
 
@@ -44,7 +41,7 @@ Class and struct declarations are augmented to allow a parameter list on the typ
 ``` antlr
 class_declaration
   : attributes? class_modifier* 'partial'? class_designator identifier type_parameter_list?
-  parameter_list? class_base? type_parameter_constraints_clause* class_body ';'?
+  parameter_list? class_base? type_parameter_constraints_clause* class_body
   ;
   
 class_designator
@@ -64,20 +61,41 @@ class_body
   
 struct_declaration
   : attributes? struct_modifier* 'partial'? 'record'? 'struct' identifier type_parameter_list?
-    parameter_list? struct_interfaces? type_parameter_constraints_clause* struct_body ';'?
+    parameter_list? struct_interfaces? type_parameter_constraints_clause* struct_body
   ;
 
 struct_body
   : '{' struct_member_declaration* '}' ';'?
   | ';'
   ;
+  
+interface_declaration
+  : attributes? interface_modifier* 'partial'? 'interface'
+    identifier variant_type_parameter_list? interface_base?
+    type_parameter_constraints_clause* interface_body
+  ;  
+    
+interface_body
+  : '{' interface_member_declaration* '}' ';'?
+  | ';'
+  ;
+
+enum_declaration
+  : attributes? enum_modifier* 'enum' identifier enum_base? enum_body
+  ;
+
+enum_body
+  : '{' enum_member_declarations? '}' ';'?
+  | '{' enum_member_declarations ',' '}' ';'?
+  | ';'
+  ;
 ```
 
 ***Note:*** These productions replace `record_declaration` in [Records](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-9.0/records.md#records) and `record_struct_declaration` in [Record structs](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-10.0/record-structs.md#record-structs), which both become obsolete. 
 
-It is an error for a `class_base` to have an `argument_list` if the enclosing `class_declaration` does not contain a `parameter_list`. At most one partial type declaration of a partial class or struct may provide a `parameter_list`. The parameters in the `parameter_list` must all be value parameters.
+It is an error for a `class_base` to have an `argument_list` if the enclosing `class_declaration` does not contain a `parameter_list`. At most one partial type declaration of a partial class or struct may provide a `parameter_list`. The parameters in the `parameter_list` of a `record` declaration must all be value parameters.
 
-It is an error for a `class_body` or `struct_body` to consist of just a `;` unless the corresponding `class_declaration` or `struct_declaration` has a `record` keyword and a `parameter_list`.
+Note, according to this proposal `class_body`, `struct_body`, `interface_body` and `enum_body` are allowed to consist of just a `;`.
 
 A class or struct with a `parameter_list` has an implicit public constructor whose signature corresponds to the value parameters of the type declaration. This is called the ***primary constructor*** for the type, and causes the implicitly declared parameterless constructor, if present, to be suppressed. It is an error to have a primary constructor and a constructor with the same signature already present in the type declaration.
 
@@ -85,18 +103,28 @@ A class or struct with a `parameter_list` has an implicit public constructor who
 
 The [lookup of simple names](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#1174-simple-names) is augmented to handle primary constructor parameters. The changes are highlighted in **bold** in the following excerpt:
 
-> - Otherwise, for each instance type `T` ([§14.3.2](classes.md#1432-the-instance-type)), starting with the instance type of the immediately enclosing type declaration and continuing with the instance type of each enclosing class or struct declaration (if any):
+> - Otherwise, for each instance type `T` ([§14.3.2](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/classes.md#1432-the-instance-type)), starting with the instance type of the immediately enclosing type declaration and continuing with the instance type of each enclosing class or struct declaration (if any):
 >   - If `e` is zero and the declaration of `T` includes a type parameter with name `I`, then the *simple_name* refers to that type parameter.
->   - **Otherwise, if the declaration of `T` includes a primary constructor parameter `I` and the reference occurs within the `argument_list` of `T`'s `class_base` or within an initializer of a field, property or event, the result is the primary constructor parameter `I`**
->   - Otherwise, if a member lookup ([§11.5](expressions.md#115-member-lookup)) of `I` in `T` with `e` type arguments produces a match:
->     - If `T` is the instance type of the immediately enclosing class or struct type and the lookup identifies one or more methods, the result is a method group with an associated instance expression of `this`. If a type argument list was specified, it is used in calling a generic method ([§11.7.8.2](expressions.md#11782-method-invocations)).
->     - Otherwise, if `T` is the instance type of the immediately enclosing class or struct type, if the lookup identifies an instance member, and if the reference occurs within the *block* of an instance constructor, an instance method, or an instance accessor ([§11.2.1](expressions.md#1121-general)), the result is the same as a member access ([§11.7.6](expressions.md#1176-member-access)) of the form `this.I`. This can only happen when `e` is zero.
->     - Otherwise, the result is the same as a member access ([§11.7.6](expressions.md#1176-member-access)) of the form `T.I` or `T.I<A₁, ..., Aₑ>`.
->   - **Otherwise, if the declaration of `T` includes a primary constructor parameter `I`, the result is the primary constructor parameter `I`. It is an error if the reference does not occur within the body of an instance method or an instance accessor.**
+>   - **Otherwise, if the declaration of `T` includes a primary constructor parameter `I` and the reference occurs within the `argument_list` of `T`'s `class_base` or within an initializer of a field, property or event of `T`, the result is the primary constructor parameter `I`**
+>   - Otherwise, if a member lookup ([§11.5](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#115-member-lookup)) of `I` in `T` with `e` type arguments produces a match:
+>     - If `T` is the instance type of the immediately enclosing class or struct type and the lookup identifies one or more methods, the result is a method group with an associated instance expression of `this`. If a type argument list was specified, it is used in calling a generic method ([§11.7.8.2](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#11782-method-invocations)).
+>     - Otherwise, if `T` is the instance type of the immediately enclosing class or struct type, if the lookup identifies an instance member, and if the reference occurs within the *block* of an instance constructor, an instance method, or an instance accessor ([§11.2.1](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#1121-general)), the result is the same as a member access ([§11.7.6](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#1176-member-access)) of the form `this.I`. This can only happen when `e` is zero.
+>     - Otherwise, the result is the same as a member access ([§11.7.6](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#1176-member-access)) of the form `T.I` or `T.I<A₁, ..., Aₑ>`.
+>   - **Otherwise, if the declaration of `T` includes a primary constructor parameter `I`, the result is the primary constructor parameter `I`.**
 
-The first addition corresponds to the change incurred by [primary constructors on records](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-9.0/records.md#primary-constructor), and ensures that primary constructor parameters are found before any corresponding fields within initializers and base class arguments.
+The first addition corresponds to the change incurred by [primary constructors on records](https://github.com/dotnet/csharplang/blob/main/proposals/csharp-9.0/records.md#primary-constructor), and ensures that primary constructor parameters are found before any corresponding fields within initializers and base class arguments. It extends this rule to static initializers as well. However, since records always have an instance member with the same name as the parameter, the extension can only lead to a change in an error message. Illegal access to a parameter vs. illegal access to an instance member.  
 
-The second addition allows primary constructor parameters to be found elsewhere within the class body, but only if not shadowed by members. It produces an error if the reference is not from within the body of an instance member or accessor. Note that instance constructors are excluded from this list.
+The second addition allows primary constructor parameters to be found elsewhere within the type body, but only if not shadowed by members.
+
+It is an error to reference a primary constructor parameter if the reference does not occur within one of the following:
+- a `nameof` argument
+- an initializer of an instance field, property or event of the declaring type (type declaring primary constructor with the parameter).
+- the `argument_list` of `class_base` of the declaring type.
+- the body of an instance method (note that instance constructors are excluded) of the declaring type.
+- the body of an instance accessor of the declaring type.
+
+In other words, primary constructor parameters are in scope throughout the declaring type body. They shadow members of the declaring type within
+an initializer of a field, property or event of the declaring type, or within the `argument_list` of `class_base` of the declaring type. They are shadowed by members of the declaring type everywhere else.
 
 Thus, in the following declaration:
 
@@ -108,17 +136,38 @@ class C(int i)
 }
 ```
 
-The initializer for the field `i` references the parameter `i` (as per the first addition), whereas the body of the property `I` references the field `i` (since member lookup comes before the second addition).
+The initializer for the field `i` references the parameter `i`, whereas the body of the property `I` references the field `i`.
+
+#### Warn on shadowing by a member from base
+
+Compiler will produce a warning on usage of an identifier when a base member shadows a primary constructor parameter
+if that primary constructor parameter was not passed to the base type via its constructor.
+
+A primary constructor parameter is considered to be passed to the base type via its constructor when all the following conditions
+are true for an argument in *class_base*:
+- The argument represents an implicit or explicit identity conversion of a primary constructor parameter;
+- The argument is not part of an expanded `params` argument;
 
 ## Semantics
 
 A primary constructor leads to the generation of an instance constructor on the enclosing type with the given parameters. If the `class_base` has an argument list, the generated instance constructor will have a `base` initializer with the same argument list.
 
-All instance member initializers in the class body will become assignments in the generated constructor. This means that, unlike other classes, initializers will run *after* the base constructor has been invoked, not before.
+Primary constructor parameters in class/struct declarations can be declared `ref`, `in` or `out`. Declaring `ref` or `out` parameters remains illegal in primary constructors of record declaration.
 
-If a primary constructor parameter is referenced from within an instance member, it is captured into the state of the enclosing type, so that it remains accessible after the termination of the constructor. A likely implementation strategy is via a private field using a mangled name. The private field is initialized by the generated constructor before , and all references to the parameter are replaced with references to the field.
+All instance member initializers in the class body will become assignments in the generated constructor.
+
+If a primary constructor parameter is referenced from within an instance member, and the reference is not inside of a `nameof` argument, it is captured into the state of the enclosing type, so that it remains accessible after the termination of the constructor. A likely implementation strategy is via a private field using a mangled name. In a readonly struct the capture fields will be readonly. Therefore, access to captured parameters of a readonly struct will have similar restrictions as access to readonly fields. Access to captured parameters within a readonly member will have similar restrictions as access to instance fields in the same context.
+
+Capturing is not allowed for parameters that have ref-like type, and capturing is not allowed for `ref`, `in` or `out` parameters. This is similar to a limitation for capturing in lambdas. 
 
 If a primary constructor parameter is only referenced from within instance member initializers, those can directly reference the parameter of the generated constructor, as they are executed as part of it.
+
+Primary Constructor will do the following sequence of operations:
+1.	Parameter values are stored in capture fields, if any.
+2.	Instance initializers are executed
+3.	Base constructor initializer is called
+
+Parameter references in any user code are replaced with corresponding capture field references.
 
 For instance this declaration:
 
@@ -150,21 +199,116 @@ public class C : B
     
     // generated members
     private string __s; // for capture of s
-    public C(bool b, int i, string s) : base(b)
+    public C(bool b, int i, string s)
     {
         __s = s; // capture s
         I = i; // run I's initializer
+        B(b) // run B's constructor
     }
 }
 ```
 
 It is an error for a non-primary constructor declaration to have the same parameter list as the primary constructor. All non-primary constructor declarations must use a `this` initializer, so that the primary constructor is ultimately called.
 
+Records produce a warning if a primary constructor parameter isn't read within the (possibly generated) instance initializers or base initializer. Similar warnings will be reported for primary constructor parameters in classes and structures:
+- for a by-value parameter, if the parameter is not captured and is not read within any instance initializers or base initializer.
+- for an `in` parameter, if the parameter is not read within any instance initializers or base initializer. 
+- for a `ref` parameter, if the parameter is not read or written to within any instance initializers or base initializer. 
+
+### Identical simple names and type names
+
+There is a special language rule for scenarios often referred to as "Color Color" scenarios - [Identical simple names and type names](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#11762-identical-simple-names-and-type-names). 
+
+>In a member access of the form `E.I`, if `E` is a single identifier, and if the meaning of `E` as a *simple_name* ([§11.7.4](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/expressions.md#1174-simple-names)) is a constant, field, property, local variable, or parameter with the same type as the meaning of `E` as a *type_name* ([§7.8.1](https://github.com/dotnet/csharpstandard/blob/draft-v7/standard/basic-concepts.md#781-general)), then both possible meanings of `E` are permitted. The member lookup of `E.I` is never ambiguous, since `I` shall necessarily be a member of the type `E` in both cases. In other words, the rule simply permits access to the static members and nested types of `E` where a compile-time error would otherwise have occurred.
+
+With respect to primary constructors, the rule affects whether an identifier within an instance member should be treated as a type reference, or as a primary constructor parameter reference, which, in turn, captures the parameter into the the state of the enclosing type. Even though "the member lookup of `E.I` is never ambiguous", when lookup yields a member group, in some cases it is impossible to determine whether a member access refers to a static member or an instance member without fully resolving (binding) the member access. At the same time, capturing a primary constructor parameter changes properties of enclosing type in a way that affects semantic analysis. For example, the type might become unmanaged and fail certain constraints because of that. 
+There are even scenarios for which binding can succeed either way, depending on whether the parameter is considered captured or not. For example:
+``` C#
+struct S1(Color Color)
+{
+    public void Test()
+    {
+        Color.M1(this);
+    }
+}
+
+class Color
+{
+    public void M1<T>(T x, int y = 0)
+    {
+        System.Console.WriteLine("instance");
+    }
+    
+    public static void M1<T>(T x) where T : unmanaged
+    {
+        System.Console.WriteLine("static");
+    }
+}
+```
+
+If we treat receiver ```Color``` as a value, we capture the parameter and 'S1' becomes managed. Then the static method becomes inapplicable due to the constraint and we would call instance method. However, if we treat the receiver as a type, we don't capture the parameter and 'S1' remains unmanaged, then both methods are applicable, but the static method is "better" because it doesn't have an optional parameter. Neither choice leads to an error, but each would result in distinct behavior.
+
+Given this, compiler will produce an ambiguity error for a member access `E.I` when all the following conditions are met:
+- Member lookup of `E.I` yields a member group containing instance and static members at the same time. Extension methods applicable to the receiver type are treated as instance methods for the purpose of this check.
+- If `E` is treated as a simple name, rather than a type name, it would refer to a primary constructor parameter and would capture the parameter into the state of the enclosing type. 
+
+### Double storage warnings
+
+If a primary constructor parameter is passed to the base and *also* captured, there's a high risk that it is inadvertently stored twice in the object. 
+
+Compiler will produce a warning for `in` or by value argument in a `class_base` `argument_list` when all the following conditions are true:
+- The argument represents an implicit or explicit identity conversion of a primary constructor parameter;
+- The argument is not part of an expanded `params` argument;
+- The primary constructor parameter is captured into the state of the enclosing type.
+
+Compiler will produce a warning for a `variable_initializer` when all the following conditions are true:
+- The variable initializer represents an implicit or explicit identity conversion of a primary constructor parameter;
+- The primary constructor parameter is captured into the state of the enclosing type.
+
+For example:
+``` c#
+public class Person(string name)
+{
+    public string Name { get; set; } = name;   // initialization
+    public override string ToString() => name; // capture
+}
+```
+
+## Attributes targeting primary constructors
+
+At https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-03-13.md we decided to embrace
+the https://github.com/dotnet/csharplang/issues/7047 proposal.
+
+The "method" attribute target is allowed on a *class_declaration*/*struct_declaration* with *parameter_list* and results in the
+corresponding primary constructor having that attribute.
+Attributes with the `method` target on a *class_declaration*/*struct_declaration* without *parameter_list* are are ignored
+with a warning.
+
+``` C#
+[method: FooAttr] // Good
+public partial record Rec(
+    [property: Foo] int X,
+    [field: NonSerialized] int Y
+);
+[method: BarAttr] // warning CS0657: 'method' is not a valid attribute location for this declaration. Valid attribute locations for this declaration are 'type'. All attributes in this block will be ignored.
+public partial record Rec
+{
+    public void Frobnicate()
+    {
+        ...
+    }
+}
+[method: Attr] // Good
+public record MyUnit1();
+[method: Attr] // warning CS0657: 'method' is not a valid attribute location for this declaration. Valid attribute locations for this declaration are 'type'. All attributes in this block will be ignored.
+public record MyUnit2;
+```
+
 ## Primary constructors on records
 
 With this proposal, records no longer need to separately specify a primary constructor mechanism. Instead, record (class and struct) declarations that have primary constructors would follow the general rules, with these simple additions:
 
-- For each primary constructor parameter, if a member with the same name already exists it must be an instance property or field, and it must be assignable to. If not, a public init-only auto-property of the same name is synthesized with a property initializer assigning from the parameter.
+- For each primary constructor parameter, if a member with the same name already exists, it must be an instance property or field. If not, a public init-only auto-property of the same name is synthesized with a property initializer assigning from the parameter.
 - A deconstructor is synthesized with out parameters to match the primary constructor parameters.
 - If an explicit constructor declaration is a "copy constructor" - a constructor that takes a single parameter of the enclosing type - it is not required to call a `this` initializer, and will not execute the member initializers present in the record declaration.
 
@@ -273,10 +417,6 @@ public class C(bool b, int i, string s) : B(b)
 }
 ```
 
-### Double storage warning
-
-If a primary constructor parameter is passed to the base and *also* captured, there's a high risk that it is inadvertently stored twice in the object. It might make sense to issue a warning about this, if we can settle on good conditions for the warning, as well as recommended ways to shut it up if the code was intentional.
-
 ### Primary constructor bodies
 
 Constructors themselves often contain parameter validation logic or other nontrivial initialization code that cannot be expressed as initializers.
@@ -318,3 +458,134 @@ There are some problems:
   - What if different naming conventions are used for parameters and fields? Then this feature would be useless.
   
 This is a potential future addition that can be adopted or not. The current proposal leaves the possibility open.
+
+## Open questions
+
+### Field targeting attributes for captured primary constructor parameters
+
+Should we allow field targeting attributes for captured primary constructor parameters?
+
+``` C#
+class C1([field: Test] int x) // Parameter is captured, the attribute goes to the capture field
+{
+    public int X => x;
+}
+class C2([field: Test] int x) // Parameter is not captured, the attribute is ignored with a warning CS0657: 'field' is not a valid attribute location for this declaration. Valid attribute locations for this declaration are 'param'. All attributes in this block will be ignored.
+{
+    public int X = x;
+}
+```
+
+Right now the attributes are ignored with the warning regardless of whether the parameter is captured.
+
+Note that for records, field targeted attributes are allowed when a property is synthesized for it. The attributes 
+go on the backing field then.
+
+``` C#
+record R1([field: Test]int X); // Ok, the attribute goes on the backing field
+record R2([field: Test]int X) // warning CS0657: 'field' is not a valid attribute location for this declaration. Valid attribute locations for this declaration are 'param'. All attributes in this block will be ignored.
+{
+    public int X = X;
+}
+```
+#### Conclusion:
+Not allowed (https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-05-03.md#attributes-on-captured-parameters).
+
+### Warn on shadowing by a member from base
+
+Should we report a warning when a member from base is shadowing a primary constructor parameter inside a member (see https://github.com/dotnet/csharplang/discussions/7109#discussioncomment-5666621)?
+
+#### Conclusion:
+
+An alternative design is approved - https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-05-08.md#primary-constructors
+
+### Capturing instance of the enclosing type in a closure
+
+When a parameter captured into the state of the enclosing type is also referenced in a lambda inside an instance initializer or a base initializer, the lambda and the state of the enclosing type should refer to the same location for the parameter.
+For example:
+``` C#
+partial class C1
+{
+    public System.Func<int> F1 = Execute1(() => p1++);
+}
+
+partial class C1 (int p1)
+{
+    public int M1() { return p1++; }
+    static System.Func<int> Execute1(System.Func<int> f)
+    {
+        _ = f();
+        return f;
+    }
+}
+```
+Since naive implementation of capturing a parameter into the state of the type simply captures the parameter in a private instance field, the lambda needs to refer to the same field. As a result, it needs to be able to access the instance of the type. This requires capturing `this` into a closure before the base constructor is invoked. That, in turn, results in safe, but an unverifiable IL. Is this acceptable? 
+
+Alternatively we could:
+- Disallow lambdas like that;
+- Or, instead, capture parameters like that in an instance of a separate class (yet another closure), and share that instance between the closure and the instance of the enclosing type. Thus eliminating the need to capture `this` in a closure.
+
+#### Conclusion:
+We are comfortable with capturing `this` into a closure before the base constructor is invoked
+(https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-02-15.md).
+The runtime team didn't find the IL pattern problematic as well.
+
+### Assigning to `this` within a struct
+
+C# allows to assign to `this` within a struct. If the struct captures a primary constructor parameter, the assignment is going to overwrite its value, which might be not obvious to the user. Do we want to report a warning for assignments like this?  
+
+``` C#
+struct S(int x)
+{
+    int X => x;
+    
+    void M(S s)
+    {
+        this = s; // 'x' is overwritten
+    }
+}
+```
+
+#### Conclusion:
+
+Allowed, no warning (https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-02-15.md).
+
+### Double storage warning for initialization plus capture
+
+We have a warning if a primary constructor parameter is passed to the base and *also* captured, because there's a high risk that it is inadvertently stored twice in the object. 
+
+It seems that there's a similar risk if a parameter is used to initialize a member, and is also captured. Here's a small example:
+
+``` c#
+public class Person(string name)
+{
+    public string Name { get; set; } = name;   // initialization
+    public override string ToString() => name; // capture
+}
+```
+
+For a given instance of `Person`, changes to `Name` would not be reflected in the output of `ToString`, which is probably unintended on the developer's part.
+
+Should we introduce a double storage warning for this situation?
+
+This is how it would work:
+
+The compiler will produce a warning for a `variable_initializer` when all the following conditions are true:
+- The variable initializer represents an implicit or explicit identity conversion of a primary constructor parameter;
+- The primary constructor parameter is captured into the state of the enclosing type.
+
+#### Conclusion:
+
+Approved, see https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-05-15.md#primary-constructors 
+
+## LDM meetings
+
+- https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-10-17.md
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-01-18.md
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-02-15.md
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-02-22.md
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-03-13.md
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-05-03.md#primary-constructors
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-05-08.md#primary-constructors
+- https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-05-15.md#primary-constructors
+

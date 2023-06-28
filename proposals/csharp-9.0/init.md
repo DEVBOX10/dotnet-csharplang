@@ -1,5 +1,7 @@
 # Init Only Setters
 
+[!INCLUDE[Specletdisclaimer](../speclet-disclaimer.md)]
+
 ## Summary
 This proposal adds the concept of init only properties and indexers to C#. 
 These properties and indexers can be set at the point of object creation 
@@ -106,7 +108,7 @@ class Base
 
 class Derived : Base
 {
-    Derived()
+    public Derived()
     {
         // Not allowed with get only properties but allowed with init
         Value = true;
@@ -117,7 +119,7 @@ class Consumption
 {
     void Example()
     {
-        var d = new Derived() { Value = true; };
+        var d = new Derived() { Value = true };
     }
 }
 

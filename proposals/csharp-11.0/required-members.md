@@ -1,5 +1,7 @@
 # Required Members
 
+[!INCLUDE[Specletdisclaimer](../speclet-disclaimer.md)]
+
 ## Summary
 
 This proposal adds a way of specifying that a property or field is required to be set during object initialization, forcing the instance creator to provide an initial value for the
@@ -28,7 +30,7 @@ class Person
 class Student : Person
 {
     public int ID { get; }
-    public Person(int id, string firstName, string lastName, string? middleName = null)
+    public Student(int id, string firstName, string lastName, string? middleName = null)
         : base(firstName, lastName, middleName)
     {
         ID = id;
@@ -126,7 +128,7 @@ The compiler will issue a warning when `Obsolete` is applied to a required membe
 ### `SetsRequiredMembersAttribute`
 
 All constructors in a type with required members, or whose base type specifies required members, must have those members set by a consumer when that constructor is called. In order to
-exempt constructors from this requirement, a constructor can be attributed with `SetRequiredMembersAttribute`, which removes these requirements. The constructor body is not validated
+exempt constructors from this requirement, a constructor can be attributed with `SetsRequiredMembersAttribute`, which removes these requirements. The constructor body is not validated
 to ensure that it definitely sets the required members of the type.
 
 `SetsRequiredMembersAttribute` removes _all_ requirements from a constructor, and those requirements are not checked for validity in any way. NB: this is the escape hatch if inheriting
@@ -155,6 +157,11 @@ If the current context does not permit an _object\_initializer_ or is not an _at
 
 A type with a parameterless constructor that advertises a _contract_ is not allowed to be substituted for a type parameter constrained to `new()`, as there is no way
 for the generic instantiation to ensure that the requirements are satisfied.
+
+### `struct` `default`s
+
+Required members are not enforced on instances of `struct` types created with `default` or `default(StructType)`. They are enforced for `struct` instances created with `new StructType()`,
+even when `StructType` has no parameterless constructor and the default struct constructor is used.
 
 ### Accessibility
 
