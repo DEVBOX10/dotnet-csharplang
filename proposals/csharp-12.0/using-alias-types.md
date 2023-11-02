@@ -1,6 +1,6 @@
 # Allow using alias directive to reference any kind of Type
 
-[!INCLUDE[Specletdisclaimer](speclet-disclaimer.md)]
+[!INCLUDE[Specletdisclaimer](../speclet-disclaimer.md)]
 
 ## Summary
 Relax the using_alias_directive ([§13.5.2](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/namespaces.md#1352-using-alias-directives)) to allow it to point at any sort of type, not just named types.  This would support types not allowed today, like: tuple types, pointer types, array types, etc.  For example, this would now be allowed:
@@ -21,6 +21,8 @@ using_alias_directive
 +    : 'using' identifier '=' (namespace_name | type) ';'
     ;
 ```
+
+Top-level reference type nullability annotations are disallowed.
 
 Interestingly, most of the spec language in [§13.5.2](https://github.com/dotnet/csharpstandard/blob/draft-v6/standard/namespaces.md#1352-using-alias-directives) does not need to change.  Most language in it already refers to 'namespace or type', for example:
 
