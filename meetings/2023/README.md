@@ -1,33 +1,33 @@
-# Upcoming meetings for 2023
+# C# Language Design Notes for 2023
 
-All schedule items must have a public issue or checked-in proposal that can be linked from the notes.
+## Mon Dec 11, 2023
 
-## Schedule ASAP
+[C# Language Design Meeting for December 11th, 2023](https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-12-11.md)
 
-- [nullability analysis of collection expressions](https://github.com/dotnet/csharplang/issues/7626) (Julien)
-
-## Schedule when convenient
-
-## Recurring topics
-
-- *Triage championed features and milestones*
-- *Design review*
-
-## Mon Dec 18, 2023
-
-## Wed Dec 13, 2023
+- Extensions
 
 ## Mon Dec 4, 2023
 
-## Wed Nov 29, 2023
+[C# Language Design Meeting for December 4th, 2023](https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-12-04.md)
+
+- Lock statement pattern
+- `BinaryCompatOnlyAttribute`
+
+## Mon Nov 27, 2023
+
+[C# Language Design Meeting for November 27th, 2023](https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-11-27.md)
+
+- Pattern order optimizations
+- Subarray slicing breaking change
+- Making patterns constant expressions
 
 ## Wed Nov 15, 2023
 
-## Wed Oct 18, 2023
+[C# Language Design Meeting for November 15th, 2023](https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-11-15.md)
 
-- C# 13 planning (Jared and Mads - no notes)
-
-# C# Language Design Notes for 2023
+- `params` improvements
+- Nullability analysis of collection expressions
+- Evaluation of implicit indexers in object initializers
 
 ## Mon Oct 16, 2023
 
